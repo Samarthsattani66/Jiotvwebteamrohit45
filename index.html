@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M3U8 Channel Selector</title>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.5.2/video-js.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.5.2/video.min.js"></script>
+
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Full-width 16:9 Video Player */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            background-color: black;
+        }
+
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Search Box */
+        .search-container {
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        .search-input {
+            width: 80%;
+            max-width: 400px;
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            text-align: center;
+        }
+
+        /* Channel Grid */
+        #channelList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            padding: 15px;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        /* Premium Channel Box */
+        .channel-item {
+            position: relative;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.5s ease-in-out, background 0.5s ease-in-out;
+            text-align: center;
+            padding-bottom: 12px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0px 2px 8px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .channel-item:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: scale(1.02);
+            box-shadow: 0px 0px 12px rgba(255, 255, 255, 0.15);
+        }
+
+        /* LIVE Badge */
+        .live-badge {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background-color: red;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 4px 7px;
+            border-radius: 3px;
+            animation: slow-pulse 2s infinite;
+        }
+
+        /* Slow Heartbeat Animation */
+        @keyframes slow-pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Channel Logo */
+        .channel-logo {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            background: black;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .channel-item:hover .channel-logo {
+            transform: scale(1.05);
+        }
+
+        /* Premium Watch Button */
+        .watch-btn {
+            display: inline-block;
+            background: rgba(0, 188, 212, 0.2);
+            color: white;
+            font-size: 14px;
+            padding: 8px 14px;
+            border-radius: 5px;
+            margin-top: 8px;
+            cursor: pointer;
+            transition: transform 1s ease-in-out, box-shadow 1s ease-in-out;
+            border: 1px solid rgba(0, 188, 212, 0.5);
+            box-shadow: 0px 0px 5px rgba(0, 188, 212, 0.3);
+            animation: slow-glow 3s infinite;
+        }
+.watch-btn:hover {
+            background: rgba(0, 188, 212, 0.4);
+            box-shadow: 0px 0px 12px rgba(0, 188, 212, 0.6);
+            transform: scale(1.05);
+        }
+
+        /* Slow Glow Animation */
+        @keyframes slow-glow {
+            0% { box-shadow: 0px 0px 5px rgba(0, 188, 212, 0.3); }
+            50% { box-shadow: 0px 0px 8px rgba(0, 188, 212, 0.5); }
+            100% { box-shadow: 0px 0px 5px rgba(0, 188, 212, 0.3); }
+        }
+
+        /* Channel Name */
+        .channel-name {
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Video Player (Full-Screen Width, 16:9 Aspect Ratio) -->
+    <div class="video-container">
+        <video id="videoPlayer" class="video-js vjs-default-skin" controls>
+            <source id="videoSource" type="application/x-mpegURL">
+        </video>
+    </div>
+
+    <h2>ALLROUNDER LIVE TV</h2>
+
+    <!-- Search Box -->
+    <div class="search-container">
+        <input type="text" id="searchBox" class="search-input" placeholder="Search for a channel..." onkeyup="searchChannels()">
+    </div>
+
+    <!-- Channel List Grid -->
+    <div id="channelList"></div>
+
+    <script>
+        let channels = [];
+
+        async function fetchChannels() {
+            const playlistUrl = "https://raw.githubusercontent.com/drmlive/mix/main/jsyz.m3u8";
+            
+            try {
+                const response = await fetch(playlistUrl);
+                const playlistText = await response.text();
+                const lines = playlistText.split("\n");
+
+                channels = [];
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].startsWith("#EXTINF")) {
+                        let name = lines[i].split(",")[1] || "Unknown Channel";
+                        let logo = lines[i].match(/tvg-logo="(.*?)"/)?.[1] || "";
+                        let url = lines[i + 1]?.trim();
+                        if (url && url.startsWith("http")) {
+                            channels.push({ name, url, logo });
+                        }
+                    }
+                }
+
+                displayChannels(channels);
+                playChannel(channels[0].url); 
+
+            } catch (error) {
+                console.error("Error fetching playlist:", error);
+            }
+        }
+
+        function displayChannels(channelList) {
+            document.getElementById("channelList").innerHTML = "";
+            channelList.forEach(channel => {
+                document.getElementById("channelList").innerHTML += 
+                    <div class="channel-item">
+                        <div class="live-badge">LIVE</div>
+                        <img src="${channel.logo}" class="channel-logo">
+                        <div class="channel-name">${channel.name}</div>
+                        <div class="watch-btn" onclick="playChannel('${channel.url}')">▶ Watch</div>
+                    </div>
+                ;
+            });
+        }
+
+        function searchChannels() {
+            let query = document.getElementById("searchBox").value.toLowerCase();
+            displayChannels(channels.filter(channel => channel.name.toLowerCase().includes(query)));
+        }
+
+        function playChannel(url) {
+            document.getElementById("videoSource").src = url;
+            document.getElementById("videoPlayer").load();
+            document.getElementById("videoPlayer").play();
+        }
+
+        fetchChannels();
+    </script>
+
+</body>
+</html>
